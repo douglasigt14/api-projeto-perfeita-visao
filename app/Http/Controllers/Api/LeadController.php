@@ -19,7 +19,7 @@ class LeadController extends Controller
         $prospector = $request->user()->prospector;
         abort_if($prospector === null, 403);
 
-        return LeadResource::collection($prospector->leads()->with('city')->latest()->latest('id')->get());
+        return LeadResource::collection($prospector->leads()->with(['city', 'visit'])->latest()->latest('id')->get());
     }
 
     /**
@@ -29,6 +29,6 @@ class LeadController extends Controller
     {
         $lead = $request->user()->prospector->leads()->create($request->validated());
 
-        return (new LeadResource($lead->load('city')))->response()->setStatusCode(201);
+        return (new LeadResource($lead->load(['city', 'visit'])))->response()->setStatusCode(201);
     }
 }

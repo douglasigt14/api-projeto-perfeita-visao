@@ -21,6 +21,7 @@ class LeadResource extends JsonResource
             'name' => $this->name,
             'phone_number' => $this->phone_number,
             'city' => $this->city->only(['id', 'name', 'state']),
+            'visit' => $this->visit ? new CityVisitResource($this->visit) : null,
             'created_at' => $this->created_at->toIso8601String(),
         ];
     }

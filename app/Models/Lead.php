@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 /**
  * Indicação feita por um prospector. Ainda não é cliente: quando virar, o cliente aponta para cá (clients.lead_id).
  */
-#[Fillable(['city_id', 'name', 'phone_number'])]
+#[Fillable(['city_id', 'city_visit_id', 'name', 'phone_number'])]
 class Lead extends Model
 {
     /** @use HasFactory<LeadFactory> */
@@ -32,6 +32,16 @@ class Lead extends Model
     public function city(): BelongsTo
     {
         return $this->belongsTo(City::class);
+    }
+
+    /**
+     * Atendimento na cidade ao qual a indicação foi vinculada.
+     *
+     * @return BelongsTo<CityVisit, $this>
+     */
+    public function visit(): BelongsTo
+    {
+        return $this->belongsTo(CityVisit::class, 'city_visit_id');
     }
 
     /**
