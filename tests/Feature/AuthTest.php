@@ -45,11 +45,22 @@ class AuthTest extends TestCase
     {
         City::factory()->create(['name' => 'Trairi']);
         City::factory()->create(['name' => 'Amontada']);
+        City::factory()->inactive()->create(['name' => 'Tururu']);
 
         $this->getJson('/api/cities')
             ->assertOk()
+            ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.name', 'Amontada')
             ->assertJsonPath('data.1.name', 'Trairi');
+    }
+
+    public function test_registration_rejects_inactive_city(): void
+    {
+        $city = City::factory()->inactive()->create();
+
+        $this->postJson('/api/register', $this->registrationData(['city_id' => $city->id]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('city_id');
     }
 
     public function test_registration_creates_prospector_and_user_and_returns_token(): void

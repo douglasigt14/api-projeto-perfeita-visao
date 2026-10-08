@@ -4,6 +4,7 @@ namespace App\Http\Requests\Auth;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class RegisterRequest extends FormRequest
@@ -19,7 +20,7 @@ class RegisterRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'birth_date' => ['required', 'date', 'before:-18 years'],
             'phone_number' => ['required', 'digits_between:10,11', 'unique:users,phone_number', 'unique:prospectors,phone_number'],
-            'city_id' => ['required', 'integer', 'exists:cities,id'],
+            'city_id' => ['required', 'integer', Rule::exists('cities', 'id')->where('active', true)],
             'pix_key' => ['required', 'string', 'max:255'],
             'instagram_handle' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'confirmed', Password::min(8)],
