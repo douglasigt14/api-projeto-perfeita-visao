@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['city_id', 'name', 'birth_date', 'phone_number'])]
+#[Fillable(['lead_id', 'city_id', 'name', 'birth_date', 'phone_number'])]
 class Client extends Model
 {
     /**
@@ -19,6 +19,16 @@ class Client extends Model
         return [
             'birth_date' => 'date',
         ];
+    }
+
+    /**
+     * Indicação que originou o cliente, se houver.
+     *
+     * @return BelongsTo<Lead, $this>
+     */
+    public function lead(): BelongsTo
+    {
+        return $this->belongsTo(Lead::class);
     }
 
     /**
