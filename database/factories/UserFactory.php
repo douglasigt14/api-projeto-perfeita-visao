@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\UserRole;
 use App\Models\Prospector;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -31,5 +32,19 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /**
+     * Usuário da equipe interna (sem prospector, entra por e-mail).
+     */
+    public function team(UserRole $role = UserRole::Admin): static
+    {
+        return $this->state(fn () => [
+            'prospector_id' => null,
+            'phone_number' => null,
+            'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
+            'role' => $role,
+        ]);
     }
 }
