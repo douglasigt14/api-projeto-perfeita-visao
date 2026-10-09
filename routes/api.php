@@ -35,6 +35,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/logout', [Admin\AuthController::class, 'logout'])->name('logout');
 
         Route::middleware('role:admin,field_agent')->group(function () {
+            Route::get('/dashboard', Admin\DashboardController::class)->name('dashboard');
+
             Route::get('/cities', [Admin\CityController::class, 'index'])->name('cities.index');
             Route::get('/prospectors', [Admin\ProspectorController::class, 'index'])->name('prospectors.index');
 

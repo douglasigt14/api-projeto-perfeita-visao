@@ -67,6 +67,9 @@ return [
 
     'timezone' => 'UTC',
 
+    // Fuso da operação: define o "dia" dos filtros por data (ex.: o período do dashboard).
+    'business_timezone' => env('APP_BUSINESS_TIMEZONE', 'America/Fortaleza'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
