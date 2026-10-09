@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -12,7 +13,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\Contracts\OAuthenticatable;
 use Laravel\Passport\HasApiTokens;
 
-#[Fillable(['prospector_id', 'phone_number', 'password'])]
+#[Fillable(['prospector_id', 'name', 'email', 'role', 'phone_number', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements OAuthenticatable
 {
@@ -28,7 +29,21 @@ class User extends Authenticatable implements OAuthenticatable
     {
         return [
             'password' => 'hashed',
+            'role' => UserRole::class,
         ];
+    }
+
+    /**
+     * Usuário da equipe interna (tem papel). Parceiros não têm.
+     */
+    public function isTeamMember(): bool
+    {
+        return $this->role !== null;
+    }
+
+    public function hasRole(UserRole ...$roles): bool
+    {
+        return in_array($this->role, $roles, true);
     }
 
     /**

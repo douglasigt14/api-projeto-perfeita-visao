@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CityVisitStatus;
+use App\Enums\LeadStatus;
 use Database\Factories\CityVisitFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -60,5 +61,15 @@ class CityVisit extends Model
     public function leads(): HasMany
     {
         return $this->hasMany(Lead::class);
+    }
+
+    /**
+     * Indicações com exame marcado (agendadas).
+     *
+     * @return HasMany<Lead, $this>
+     */
+    public function scheduledLeads(): HasMany
+    {
+        return $this->leads()->where('status', LeadStatus::Scheduled);
     }
 }

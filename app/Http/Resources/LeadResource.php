@@ -20,6 +20,8 @@ class LeadResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'phone_number' => $this->phone_number,
+            'status' => $this->status,
+            'appointment_date' => $this->appointment_date?->toDateString(),
             'city' => $this->city->only(['id', 'name', 'state']),
             'visit' => $this->visit ? new CityVisitResource($this->visit) : null,
             'created_at' => $this->created_at->toIso8601String(),
