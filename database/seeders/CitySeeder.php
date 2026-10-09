@@ -12,8 +12,8 @@ class CitySeeder extends Seeder
      * Cidades onde a empresa já atende — as únicas que entram ativas.
      */
     private const ACTIVE = [
-        'Aracati', 'Aracoiaba', 'Baturité', 'Iguatu', 'Morada Nova', 'Nova Olinda', 'Orós', 'Santana do Cariri',
-        'Várzea Alegre',
+        'Aracati', 'Aracoiaba', 'Assaré', 'Baturité', 'Campos Sales', 'Cariús', 'Iguatu', 'Morada Nova',
+        'Nova Olinda', 'Orós', 'Santana do Cariri', 'Várzea Alegre',
     ];
 
     /**
