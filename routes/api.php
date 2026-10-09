@@ -25,7 +25,7 @@ Route::middleware('auth:api')->group(function () {
 
 /*
 | Painel da equipe interna. Todas exigem usuário da equipe (role); parceiros recebem 403.
-| admin: tudo · field_agent: atendimentos (só ver) e indicações · factory: só entra.
+| admin: tudo · field_agent: atendimentos e parceiros (só ver) e indicações · factory: só entra.
 */
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::post('/login', [Admin\AuthController::class, 'login'])->middleware('throttle:10,1')->name('login');
@@ -39,6 +39,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
             Route::get('/cities', [Admin\CityController::class, 'index'])->name('cities.index');
             Route::get('/prospectors', [Admin\ProspectorController::class, 'index'])->name('prospectors.index');
+            Route::get('/prospectors/options', [Admin\ProspectorController::class, 'options'])->name('prospectors.options');
+            Route::get('/prospectors/{prospector}', [Admin\ProspectorController::class, 'show'])->whereNumber('prospector')->name('prospectors.show');
 
             Route::get('/city-visits', [Admin\CityVisitController::class, 'index'])->name('city-visits.index');
             Route::get('/city-visits/{cityVisit}', [Admin\CityVisitController::class, 'show'])->name('city-visits.show');
@@ -53,6 +55,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::middleware('role:admin')->group(function () {
             Route::post('/city-visits', [Admin\CityVisitController::class, 'store'])->name('city-visits.store');
             Route::patch('/city-visits/{cityVisit}', [Admin\CityVisitController::class, 'update'])->name('city-visits.update');
+
+            Route::post('/prospectors', [Admin\ProspectorController::class, 'store'])->name('prospectors.store');
+            Route::patch('/prospectors/{prospector}', [Admin\ProspectorController::class, 'update'])->name('prospectors.update');
+            Route::post('/prospectors/{prospector}/block', [Admin\ProspectorController::class, 'block'])->name('prospectors.block');
+            Route::delete('/prospectors/{prospector}/block', [Admin\ProspectorController::class, 'unblock'])->name('prospectors.unblock');
+            Route::put('/prospectors/{prospector}/password', [Admin\ProspectorController::class, 'updatePassword'])->name('prospectors.password');
 
             Route::apiResource('users', Admin\TeamUserController::class)->except('show');
         });

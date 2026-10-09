@@ -18,7 +18,9 @@ class StoreLeadRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()?->prospector !== null;
+        $prospector = $this->user()?->prospector;
+
+        return $prospector !== null && ! $prospector->isBlocked();
     }
 
     /**

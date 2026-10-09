@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\LeadStatus;
 use Database\Factories\ProspectorFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['city_id', 'name', 'birth_date', 'pix_key', 'phone_number', 'instagram_handle'])]
+#[Fillable(['city_id', 'name', 'birth_date', 'pix_key', 'phone_number', 'instagram_handle', 'blocked_at'])]
 class Prospector extends Model
 {
     /** @use HasFactory<ProspectorFactory> */
@@ -25,7 +26,16 @@ class Prospector extends Model
     {
         return [
             'birth_date' => 'date',
+            'blocked_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Bloqueado pela equipe: não entra no app nem envia indicações.
+     */
+    public function isBlocked(): bool
+    {
+        return $this->blocked_at !== null;
     }
 
     /**
@@ -44,6 +54,16 @@ class Prospector extends Model
     public function leads(): HasMany
     {
         return $this->hasMany(Lead::class);
+    }
+
+    /**
+     * Indicações que compareceram ao exame.
+     *
+     * @return HasMany<Lead, $this>
+     */
+    public function attendedLeads(): HasMany
+    {
+        return $this->leads()->where('status', LeadStatus::Attended);
     }
 
     /**
