@@ -8,15 +8,17 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Indicação feita por um prospector. Ainda não é cliente: quando virar, o cliente aponta para cá (clients.lead_id).
+ * Apagar só preenche deleted_at (soft delete).
  */
 #[Fillable(['city_id', 'city_visit_id', 'name', 'phone_number'])]
 class Lead extends Model
 {
     /** @use HasFactory<LeadFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * @return BelongsTo<Prospector, $this>
