@@ -132,6 +132,34 @@ class LeadTest extends TestCase
         $this->postJson('/api/leads', [])->assertUnauthorized();
         $this->getJson('/api/leads')->assertUnauthorized();
         $this->getJson('/api/cities/1/visits')->assertUnauthorized();
+        $this->deleteJson('/api/leads/1')->assertUnauthorized();
+    }
+
+    public function test_prospector_soft_deletes_own_lead(): void
+    {
+        $user = User::factory()->create();
+        $lead = Lead::factory()->for($user->prospector)->create();
+        $kept = Lead::factory()->for($user->prospector)->create();
+        Passport::actingAs($user);
+
+        $this->deleteJson("/api/leads/{$lead->id}")->assertNoContent();
+
+        $this->assertSoftDeleted($lead);
+        $this->getJson('/api/leads')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $kept->id);
+        $this->deleteJson("/api/leads/{$lead->id}")->assertNotFound();
+    }
+
+    public function test_prospector_cannot_delete_lead_of_another_prospector(): void
+    {
+        $other = Lead::factory()->create();
+        Passport::actingAs(User::factory()->create());
+
+        $this->deleteJson("/api/leads/{$other->id}")->assertNotFound();
+
+        $this->assertNotSoftDeleted($other);
     }
 
     public function test_user_without_prospector_cannot_create_lead(): void

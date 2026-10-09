@@ -8,6 +8,7 @@ use App\Http\Resources\LeadResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
 
 class LeadController extends Controller
 {
@@ -30,5 +31,18 @@ class LeadController extends Controller
         $lead = $request->user()->prospector->leads()->create($request->validated());
 
         return (new LeadResource($lead->load(['city', 'visit'])))->response()->setStatusCode(201);
+    }
+
+    /**
+     * Apaga (soft delete) uma indicação do prospector logado. Indicação de outro prospector → 404.
+     */
+    public function destroy(Request $request, int $lead): Response
+    {
+        $prospector = $request->user()->prospector;
+        abort_if($prospector === null, 403);
+
+        $prospector->leads()->findOrFail($lead)->delete();
+
+        return response()->noContent();
     }
 }

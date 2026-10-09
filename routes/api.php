@@ -19,4 +19,5 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/cities/{city}/visits', [CityVisitController::class, 'index']);
     Route::get('/leads', [LeadController::class, 'index']);
     Route::post('/leads', [LeadController::class, 'store']);
+    Route::delete('/leads/{lead}', [LeadController::class, 'destroy'])->whereNumber('lead');
 });
