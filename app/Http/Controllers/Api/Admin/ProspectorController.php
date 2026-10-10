@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password;
 
 /**
- * Parceiros (prospectors). Admin e atendente consultam; só o Admin cadastra, edita, bloqueia e troca a senha.
+ * Parceiros (prospectors). Admin e atendente consultam e marcam como confiável; só o Admin cadastra, edita,
+ * bloqueia e troca a senha.
  */
 class ProspectorController extends Controller
 {
@@ -27,6 +28,7 @@ class ProspectorController extends Controller
             'search' => ['nullable', 'string', 'max:100'],
             'city_id' => ['nullable', 'integer'],
             'blocked' => ['nullable', 'boolean'],
+            'trusted' => ['nullable', 'boolean'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
@@ -35,6 +37,7 @@ class ProspectorController extends Controller
             ->withCount(['leads', 'attendedLeads'])
             ->when($filters['city_id'] ?? null, fn ($q, $id) => $q->where('city_id', $id))
             ->when(isset($filters['blocked']), fn ($q) => $request->boolean('blocked') ? $q->whereNotNull('blocked_at') : $q->whereNull('blocked_at'))
+            ->when(isset($filters['trusted']), fn ($q) => $request->boolean('trusted') ? $q->whereNotNull('trusted_at') : $q->whereNull('trusted_at'))
             ->when(trim($filters['search'] ?? ''), function ($q, string $search) {
                 $digits = preg_replace('/\D/', '', $search);
                 $q->where(function ($q) use ($search, $digits) {
@@ -82,11 +85,14 @@ class ProspectorController extends Controller
     public function store(ProspectorRequest $request): JsonResponse
     {
         $prospector = DB::transaction(function () use ($request) {
-            $prospector = Prospector::create($request->safe()->except('password'));
+            $prospector = Prospector::create($request->safe()->except(['password', 'trusted']));
             $prospector->user()->create([
                 'phone_number' => $prospector->phone_number,
                 'password' => $request->validated('password'),
             ]);
+            if ($request->boolean('trusted')) {
+                $prospector->setTrusted(true);
+            }
 
             return $prospector;
         });
@@ -100,7 +106,10 @@ class ProspectorController extends Controller
     public function update(ProspectorRequest $request, Prospector $prospector): ProspectorResource
     {
         DB::transaction(function () use ($request, $prospector) {
-            $prospector->update($request->validated());
+            $prospector->update($request->safe()->except('trusted'));
+            if ($request->has('trusted')) {
+                $prospector->setTrusted($request->boolean('trusted'));
+            }
 
             if ($prospector->wasChanged('phone_number')) {
                 $prospector->user?->update(['phone_number' => $prospector->phone_number]);
@@ -126,6 +135,26 @@ class ProspectorController extends Controller
     public function unblock(Prospector $prospector): ProspectorResource
     {
         $prospector->update(['blocked_at' => null]);
+
+        return new ProspectorResource($this->forDetail($prospector));
+    }
+
+    /**
+     * Marca como confiável: as indicações dele passam a nascer agendadas, e as "Nova" de agora são agendadas.
+     */
+    public function trust(Prospector $prospector): ProspectorResource
+    {
+        DB::transaction(fn () => $prospector->setTrusted(true));
+
+        return new ProspectorResource($this->forDetail($prospector));
+    }
+
+    /**
+     * Deixa de ser confiável. As indicações já agendadas continuam como estão.
+     */
+    public function untrust(Prospector $prospector): ProspectorResource
+    {
+        $prospector->setTrusted(false);
 
         return new ProspectorResource($this->forDetail($prospector));
     }

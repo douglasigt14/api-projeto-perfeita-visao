@@ -25,7 +25,7 @@ Route::middleware('auth:api')->group(function () {
 
 /*
 | Painel da equipe interna. Todas exigem usuário da equipe (role); parceiros recebem 403.
-| admin: tudo · field_agent: atendimentos e parceiros (só ver) e indicações · factory: só entra.
+| admin: tudo · field_agent: atendimentos, parceiros (ver e marcar como confiável) e indicações · factory: só entra.
 */
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::post('/login', [Admin\AuthController::class, 'login'])->middleware('throttle:10,1')->name('login');
@@ -41,6 +41,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/prospectors', [Admin\ProspectorController::class, 'index'])->name('prospectors.index');
             Route::get('/prospectors/options', [Admin\ProspectorController::class, 'options'])->name('prospectors.options');
             Route::get('/prospectors/{prospector}', [Admin\ProspectorController::class, 'show'])->whereNumber('prospector')->name('prospectors.show');
+            Route::post('/prospectors/{prospector}/trust', [Admin\ProspectorController::class, 'trust'])->name('prospectors.trust');
+            Route::delete('/prospectors/{prospector}/trust', [Admin\ProspectorController::class, 'untrust'])->name('prospectors.untrust');
 
             Route::get('/city-visits', [Admin\CityVisitController::class, 'index'])->name('city-visits.index');
             Route::get('/city-visits/{cityVisit}', [Admin\CityVisitController::class, 'show'])->name('city-visits.show');

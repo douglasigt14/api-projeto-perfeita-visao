@@ -29,6 +29,8 @@ class ProspectorResource extends JsonResource
             'city' => $this->city->only(['id', 'name', 'state']),
             'blocked' => $this->isBlocked(),
             'blocked_at' => $this->blocked_at?->toIso8601String(),
+            'trusted' => $this->isTrusted(),
+            'trusted_at' => $this->trusted_at?->toIso8601String(),
             'leads_count' => $this->whenCounted('leads'),
             'attended_count' => $this->whenCounted('attendedLeads'),
             // Só no detalhe: quantas indicações em cada situação.

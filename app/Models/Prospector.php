@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['city_id', 'name', 'birth_date', 'pix_key', 'phone_number', 'instagram_handle', 'blocked_at'])]
+#[Fillable(['city_id', 'name', 'birth_date', 'pix_key', 'phone_number', 'instagram_handle', 'blocked_at', 'trusted_at'])]
 class Prospector extends Model
 {
     /** @use HasFactory<ProspectorFactory> */
@@ -27,6 +27,7 @@ class Prospector extends Model
         return [
             'birth_date' => 'date',
             'blocked_at' => 'datetime',
+            'trusted_at' => 'datetime',
         ];
     }
 
@@ -36,6 +37,41 @@ class Prospector extends Model
     public function isBlocked(): bool
     {
         return $this->blocked_at !== null;
+    }
+
+    /**
+     * Confiável: as indicações dele já nascem agendadas (no 1º dia livre do atendimento).
+     */
+    public function isTrusted(): bool
+    {
+        return $this->trusted_at !== null;
+    }
+
+    /**
+     * Marca (ou desmarca) como confiável. Ao marcar, as indicações "Nova" dele com atendimento
+     * ainda aberto passam para Agendada. Desmarcar não mexe nas indicações.
+     */
+    public function setTrusted(bool $trusted): void
+    {
+        if (! $trusted) {
+            $this->update(['trusted_at' => null]);
+
+            return;
+        }
+
+        if (! $this->isTrusted()) {
+            $this->update(['trusted_at' => now()]);
+        }
+
+        $this->leads()
+            ->where('status', LeadStatus::New)
+            ->whereHas('visit', fn ($q) => $q->open())
+            ->with('visit')
+            ->get()
+            ->each(fn (Lead $lead) => $lead->update([
+                'status' => LeadStatus::Scheduled,
+                'appointment_date' => $lead->visit->firstAvailableDay(),
+            ]));
     }
 
     /**

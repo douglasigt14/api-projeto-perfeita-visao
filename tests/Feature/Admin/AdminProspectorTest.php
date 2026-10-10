@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\LeadStatus;
 use App\Enums\UserRole;
 use App\Models\City;
+use App\Models\CityVisit;
 use App\Models\Lead;
 use App\Models\Prospector;
 use App\Models\User;
@@ -181,5 +182,71 @@ class AdminProspectorTest extends TestCase
         $this->postJson("/api/admin/prospectors/{$prospector->id}/block")->assertForbidden();
         $this->putJson("/api/admin/prospectors/{$prospector->id}/password", ['password' => 'novasenha123'])->assertForbidden();
         $this->postJson('/api/admin/prospectors', [])->assertForbidden();
+    }
+
+    public function test_field_agent_marks_a_prospector_as_trusted_and_new_leads_get_scheduled(): void
+    {
+        $prospector = Prospector::factory()->create();
+        $visit = CityVisit::factory()->create(['visit_date' => now()->addDays(5)->toDateString(), 'end_date' => now()->addDays(7)->toDateString()]);
+        $started = CityVisit::factory()->create(['visit_date' => now()->subDay()->toDateString(), 'end_date' => now()->addDay()->toDateString()]);
+        $past = CityVisit::factory()->create(['visit_date' => now()->subDays(10)->toDateString()]);
+        $new = Lead::factory()->create(['prospector_id' => $prospector->id, 'city_visit_id' => $visit->id]);
+        $newStarted = Lead::factory()->create(['prospector_id' => $prospector->id, 'city_visit_id' => $started->id]);
+        $newPast = Lead::factory()->create(['prospector_id' => $prospector->id, 'city_visit_id' => $past->id]);
+        $contacting = Lead::factory()->create(['prospector_id' => $prospector->id, 'city_visit_id' => $visit->id, 'status' => LeadStatus::Contacting]);
+        Passport::actingAs(User::factory()->team(UserRole::FieldAgent)->create());
+
+        $this->postJson("/api/admin/prospectors/{$prospector->id}/trust")
+            ->assertOk()
+            ->assertJsonPath('data.trusted', true)
+            ->assertJsonPath('data.leads_by_status.scheduled', 2);
+
+        $this->assertSame(LeadStatus::Scheduled, $new->fresh()->status);
+        $this->assertSame($visit->visit_date->toDateString(), $new->fresh()->appointment_date->toDateString());
+        $this->assertSame(today()->toDateString(), $newStarted->fresh()->appointment_date->toDateString());
+        $this->assertSame(LeadStatus::New, $newPast->fresh()->status);
+        $this->assertSame(LeadStatus::Contacting, $contacting->fresh()->status);
+
+        $this->getJson('/api/admin/prospectors?trusted=1')->assertJsonPath('meta.total', 1);
+
+        $this->deleteJson("/api/admin/prospectors/{$prospector->id}/trust")
+            ->assertOk()
+            ->assertJsonPath('data.trusted', false);
+        $this->assertSame(LeadStatus::Scheduled, $new->fresh()->status);
+    }
+
+    public function test_trusted_prospector_leads_are_born_scheduled(): void
+    {
+        $user = User::factory()->create();
+        $visit = CityVisit::factory()->create(['visit_date' => now()->addDays(3)->toDateString()]);
+        $lead = ['name' => 'João Pereira', 'phone_number' => '88988887777', 'city_id' => $visit->city_id, 'city_visit_id' => $visit->id];
+        Passport::actingAs($user);
+
+        $this->postJson('/api/leads', $lead)->assertCreated()->assertJsonPath('data.status', 'new');
+
+        $user->prospector->update(['trusted_at' => now()]);
+
+        $this->postJson('/api/leads', $lead)
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'scheduled')
+            ->assertJsonPath('data.appointment_date', $visit->visit_date->toDateString());
+    }
+
+    public function test_admin_sets_trusted_in_the_form(): void
+    {
+        $city = City::factory()->create();
+
+        $id = $this->postJson('/api/admin/prospectors', [
+            'name' => 'Maria Souza',
+            'birth_date' => '1995-04-12',
+            'phone_number' => '(88) 99999-1234',
+            'city_id' => $city->id,
+            'pix_key' => 'maria@exemplo.com',
+            'password' => 'senha12345',
+            'trusted' => true,
+        ])->assertCreated()->assertJsonPath('data.trusted', true)->json('data.id');
+
+        $this->patchJson("/api/admin/prospectors/{$id}", ['trusted' => false])->assertJsonPath('data.trusted', false);
+        $this->patchJson("/api/admin/prospectors/{$id}", ['name' => 'Maria S.'])->assertJsonPath('data.trusted', false);
     }
 }

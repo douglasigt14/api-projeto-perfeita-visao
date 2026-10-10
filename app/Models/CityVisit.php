@@ -48,6 +48,15 @@ class CityVisit extends Model
     }
 
     /**
+     * Dia em que a indicação de parceiro confiável é agendada: o 1º dia do atendimento,
+     * ou hoje se o atendimento já começou.
+     */
+    public function firstAvailableDay(): string
+    {
+        return $this->visit_date->max(today())->toDateString();
+    }
+
+    /**
      * @return BelongsTo<City, $this>
      */
     public function city(): BelongsTo

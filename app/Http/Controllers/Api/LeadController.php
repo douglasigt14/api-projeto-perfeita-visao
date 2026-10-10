@@ -6,6 +6,7 @@ use App\Enums\LeadStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Lead\StoreLeadRequest;
 use App\Http\Resources\LeadResource;
+use App\Models\CityVisit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -26,11 +27,20 @@ class LeadController extends Controller
     }
 
     /**
-     * Nova indicação do prospector logado.
+     * Nova indicação do prospector logado. De parceiro confiável, já nasce Agendada
+     * no 1º dia livre do atendimento (a equipe pode trocar o dia depois).
      */
     public function store(StoreLeadRequest $request): JsonResponse
     {
-        $lead = $request->user()->prospector->leads()->create($request->validated());
+        $prospector = $request->user()->prospector;
+        $data = $request->validated();
+
+        if ($prospector->isTrusted()) {
+            $data['status'] = LeadStatus::Scheduled;
+            $data['appointment_date'] = CityVisit::findOrFail($data['city_visit_id'])->firstAvailableDay();
+        }
+
+        $lead = $prospector->leads()->create($data);
 
         return (new LeadResource($lead->load(['city', 'visit'])))->response()->setStatusCode(201);
     }

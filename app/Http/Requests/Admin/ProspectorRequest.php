@@ -36,6 +36,7 @@ class ProspectorRequest extends FormRequest
             'city_id' => [$required, 'integer', Rule::exists('cities', 'id')->where('active', true)],
             'pix_key' => [$required, 'string', 'max:255'],
             'instagram_handle' => ['nullable', 'string', 'max:30'],
+            'trusted' => ['sometimes', 'boolean'],
             'password' => $creating ? ['required', 'string', Password::min(8)] : ['prohibited'],
         ];
     }
