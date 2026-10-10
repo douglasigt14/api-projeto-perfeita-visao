@@ -47,6 +47,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/city-visits', [Admin\CityVisitController::class, 'index'])->name('city-visits.index');
             Route::get('/city-visits/{cityVisit}', [Admin\CityVisitController::class, 'show'])->name('city-visits.show');
 
+            Route::get('/lead-statuses', [Admin\LeadStatusController::class, 'index'])->name('lead-statuses.index');
             Route::get('/leads', [Admin\LeadController::class, 'index'])->name('leads.index');
             Route::get('/leads/{lead}', [Admin\LeadController::class, 'show'])->name('leads.show');
             Route::patch('/leads/{lead}/schedule', [Admin\LeadController::class, 'schedule'])->name('leads.schedule');
@@ -65,6 +66,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('/prospectors/{prospector}/password', [Admin\ProspectorController::class, 'updatePassword'])->name('prospectors.password');
 
             Route::apiResource('users', Admin\TeamUserController::class)->except('show');
+            Route::apiResource('lead-statuses', Admin\LeadStatusController::class)->only(['store', 'update', 'destroy'])->parameters(['lead-statuses' => 'leadStatus']);
         });
     });
 });

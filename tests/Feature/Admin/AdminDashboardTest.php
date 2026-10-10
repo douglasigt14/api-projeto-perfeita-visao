@@ -3,7 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Enums\CityVisitStatus;
-use App\Enums\LeadStatus;
+use App\Enums\LeadStage;
 use App\Enums\UserRole;
 use App\Models\City;
 use App\Models\CityVisit;
@@ -43,8 +43,8 @@ class AdminDashboardTest extends TestCase
 
         // João indicou mais, mas só a indicação da Maria compareceu: Maria fica em primeiro.
         Lead::factory()->count(3)->create(['prospector_id' => $joao->id, 'city_id' => $aracati->id]);
-        Lead::factory()->create(['prospector_id' => $maria->id, 'city_id' => $iguatu->id, 'city_visit_id' => $visit->id, 'status' => LeadStatus::Attended, 'appointment_date' => '2026-10-16']);
-        Lead::factory()->create(['prospector_id' => $maria->id, 'city_id' => $iguatu->id, 'city_visit_id' => $visit->id, 'status' => LeadStatus::Scheduled, 'appointment_date' => '2026-10-17']);
+        Lead::factory()->create(['prospector_id' => $maria->id, 'city_id' => $iguatu->id, 'city_visit_id' => $visit->id, 'stage' => LeadStage::Attended, 'appointment_date' => '2026-10-16']);
+        Lead::factory()->create(['prospector_id' => $maria->id, 'city_id' => $iguatu->id, 'city_visit_id' => $visit->id, 'stage' => LeadStage::Scheduled, 'appointment_date' => '2026-10-17']);
         // fora do período e apagada não contam
         Lead::factory()->create(['prospector_id' => $maria->id, 'city_id' => $iguatu->id, 'created_at' => '2026-09-30 12:00:00']);
         Lead::factory()->create(['prospector_id' => $maria->id, 'city_id' => $iguatu->id])->delete();
@@ -55,8 +55,8 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.leads.total', 5)
             ->assertJsonPath('data.leads.with_appointment', 2)
             ->assertJsonPath('data.leads.attended', 1)
-            ->assertJsonPath('data.leads.by_status.new', 3)
-            ->assertJsonPath('data.leads.by_status.discarded', 0)
+            ->assertJsonPath('data.leads.by_stage.new', 3)
+            ->assertJsonPath('data.leads.by_stage.discarded', 0)
             ->assertJsonPath('data.leads_by_city.0.city.name', 'Aracati')
             ->assertJsonPath('data.leads_by_city.0.total', 3)
             ->assertJsonPath('data.leads_by_city.1.attended', 1)

@@ -20,7 +20,13 @@ class LeadResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'phone_number' => $this->phone_number,
-            'status' => $this->status,
+            // O parceiro vê o nome pensado para ele (partner_name) e a etapa (para a lixeira: só em "new").
+            'stage' => $this->stage,
+            'status' => [
+                'id' => $this->status->id,
+                'name' => $this->status->partner_name,
+                'color' => $this->status->color,
+            ],
             'appointment_date' => $this->appointment_date?->toDateString(),
             'city' => $this->city->only(['id', 'name', 'state']),
             'visit' => $this->visit ? new CityVisitResource($this->visit) : null,

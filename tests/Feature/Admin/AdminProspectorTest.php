@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Enums\LeadStatus;
+use App\Enums\LeadStage;
 use App\Enums\UserRole;
 use App\Models\City;
 use App\Models\CityVisit;
@@ -33,7 +33,7 @@ class AdminProspectorTest extends TestCase
         Prospector::factory()->create(['name' => 'Ana Lima', 'city_id' => $iguatu->id, 'blocked_at' => now()]);
         Prospector::factory()->create(['name' => 'Bruno']); // outra cidade
         Lead::factory()->create(['prospector_id' => $maria->id]);
-        Lead::factory()->create(['prospector_id' => $maria->id, 'status' => LeadStatus::Attended, 'appointment_date' => '2026-10-15']);
+        Lead::factory()->create(['prospector_id' => $maria->id, 'stage' => LeadStage::Attended, 'appointment_date' => '2026-10-15']);
 
         $this->getJson("/api/admin/prospectors?city_id={$iguatu->id}")
             ->assertOk()
@@ -54,18 +54,18 @@ class AdminProspectorTest extends TestCase
             ->assertJsonPath('data.0.name', 'Ana Lima');
     }
 
-    public function test_shows_a_prospector_with_leads_by_status(): void
+    public function test_shows_a_prospector_with_leads_by_stage(): void
     {
         $prospector = Prospector::factory()->create();
         Lead::factory()->count(2)->create(['prospector_id' => $prospector->id]);
-        Lead::factory()->create(['prospector_id' => $prospector->id, 'status' => LeadStatus::Contacting]);
+        Lead::factory()->create(['prospector_id' => $prospector->id, 'stage' => LeadStage::Contacting]);
 
         $this->getJson("/api/admin/prospectors/{$prospector->id}")
             ->assertOk()
             ->assertJsonPath('data.leads_count', 3)
-            ->assertJsonPath('data.leads_by_status.new', 2)
-            ->assertJsonPath('data.leads_by_status.contacting', 1)
-            ->assertJsonPath('data.leads_by_status.attended', 0);
+            ->assertJsonPath('data.leads_by_stage.new', 2)
+            ->assertJsonPath('data.leads_by_stage.contacting', 1)
+            ->assertJsonPath('data.leads_by_stage.attended', 0);
     }
 
     public function test_admin_creates_a_prospector_who_can_log_in(): void
@@ -193,26 +193,26 @@ class AdminProspectorTest extends TestCase
         $new = Lead::factory()->create(['prospector_id' => $prospector->id, 'city_visit_id' => $visit->id]);
         $newStarted = Lead::factory()->create(['prospector_id' => $prospector->id, 'city_visit_id' => $started->id]);
         $newPast = Lead::factory()->create(['prospector_id' => $prospector->id, 'city_visit_id' => $past->id]);
-        $contacting = Lead::factory()->create(['prospector_id' => $prospector->id, 'city_visit_id' => $visit->id, 'status' => LeadStatus::Contacting]);
+        $contacting = Lead::factory()->create(['prospector_id' => $prospector->id, 'city_visit_id' => $visit->id, 'stage' => LeadStage::Contacting]);
         Passport::actingAs(User::factory()->team(UserRole::FieldAgent)->create());
 
         $this->postJson("/api/admin/prospectors/{$prospector->id}/trust")
             ->assertOk()
             ->assertJsonPath('data.trusted', true)
-            ->assertJsonPath('data.leads_by_status.scheduled', 2);
+            ->assertJsonPath('data.leads_by_stage.scheduled', 2);
 
-        $this->assertSame(LeadStatus::Scheduled, $new->fresh()->status);
+        $this->assertSame(LeadStage::Scheduled, $new->fresh()->stage);
         $this->assertSame($visit->visit_date->toDateString(), $new->fresh()->appointment_date->toDateString());
         $this->assertSame(today()->toDateString(), $newStarted->fresh()->appointment_date->toDateString());
-        $this->assertSame(LeadStatus::New, $newPast->fresh()->status);
-        $this->assertSame(LeadStatus::Contacting, $contacting->fresh()->status);
+        $this->assertSame(LeadStage::New, $newPast->fresh()->stage);
+        $this->assertSame(LeadStage::Contacting, $contacting->fresh()->stage);
 
         $this->getJson('/api/admin/prospectors?trusted=1')->assertJsonPath('meta.total', 1);
 
         $this->deleteJson("/api/admin/prospectors/{$prospector->id}/trust")
             ->assertOk()
             ->assertJsonPath('data.trusted', false);
-        $this->assertSame(LeadStatus::Scheduled, $new->fresh()->status);
+        $this->assertSame(LeadStage::Scheduled, $new->fresh()->stage);
     }
 
     public function test_trusted_prospector_leads_are_born_scheduled(): void
@@ -222,13 +222,13 @@ class AdminProspectorTest extends TestCase
         $lead = ['name' => 'João Pereira', 'phone_number' => '88988887777', 'city_id' => $visit->city_id, 'city_visit_id' => $visit->id];
         Passport::actingAs($user);
 
-        $this->postJson('/api/leads', $lead)->assertCreated()->assertJsonPath('data.status', 'new');
+        $this->postJson('/api/leads', $lead)->assertCreated()->assertJsonPath('data.stage', 'new');
 
         $user->prospector->update(['trusted_at' => now()]);
 
         $this->postJson('/api/leads', $lead)
             ->assertCreated()
-            ->assertJsonPath('data.status', 'scheduled')
+            ->assertJsonPath('data.stage', 'scheduled')
             ->assertJsonPath('data.appointment_date', $visit->visit_date->toDateString());
     }
 

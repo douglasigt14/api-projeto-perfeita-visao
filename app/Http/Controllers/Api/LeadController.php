@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\LeadStatus;
+use App\Enums\LeadStage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Lead\StoreLeadRequest;
 use App\Http\Resources\LeadResource;
@@ -23,7 +23,7 @@ class LeadController extends Controller
         $prospector = $request->user()->prospector;
         abort_if($prospector === null, 403);
 
-        return LeadResource::collection($prospector->leads()->with(['city', 'visit'])->latest()->latest('id')->get());
+        return LeadResource::collection($prospector->leads()->with(['city', 'visit', 'status'])->latest()->latest('id')->get());
     }
 
     /**
@@ -36,13 +36,13 @@ class LeadController extends Controller
         $data = $request->validated();
 
         if ($prospector->isTrusted()) {
-            $data['status'] = LeadStatus::Scheduled;
+            $data['stage'] = LeadStage::Scheduled;
             $data['appointment_date'] = CityVisit::findOrFail($data['city_visit_id'])->firstAvailableDay();
         }
 
         $lead = $prospector->leads()->create($data);
 
-        return (new LeadResource($lead->load(['city', 'visit'])))->response()->setStatusCode(201);
+        return (new LeadResource($lead->load(['city', 'visit', 'status'])))->response()->setStatusCode(201);
     }
 
     /**
@@ -56,7 +56,7 @@ class LeadController extends Controller
 
         $lead = $prospector->leads()->findOrFail($lead);
 
-        if ($lead->status !== LeadStatus::New) {
+        if ($lead->stage !== LeadStage::New) {
             throw ValidationException::withMessages([
                 'lead' => 'A equipe já está cuidando desta indicação, então ela não pode mais ser apagada.',
             ]);

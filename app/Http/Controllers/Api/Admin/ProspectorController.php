@@ -180,7 +180,7 @@ class ProspectorController extends Controller
     private function forDetail(Prospector $prospector): Prospector
     {
         return $prospector->refresh()
-            ->load(['city:id,name,state', 'leads:id,prospector_id,status'])
+            ->load(['city:id,name,state', 'leads:id,prospector_id,stage'])
             ->loadCount(['leads', 'attendedLeads']);
     }
 }

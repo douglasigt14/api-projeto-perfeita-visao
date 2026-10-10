@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Enums\LeadStatus;
+use App\Enums\LeadStage;
 use App\Models\City;
 use App\Models\CityVisit;
 use App\Models\Lead;
@@ -109,7 +109,7 @@ class AdminCityVisitTest extends TestCase
         $october = CityVisit::factory()->create(['city_id' => $city->id, 'visit_date' => '2026-10-15']);
         CityVisit::factory()->create(['visit_date' => '2026-12-01']); // outra cidade
         Lead::factory()->create(['city_id' => $city->id, 'city_visit_id' => $november->id]);
-        Lead::factory()->create(['city_id' => $city->id, 'city_visit_id' => $november->id, 'status' => LeadStatus::Scheduled, 'appointment_date' => '2026-11-23']);
+        Lead::factory()->create(['city_id' => $city->id, 'city_visit_id' => $november->id, 'stage' => LeadStage::Scheduled, 'appointment_date' => '2026-11-23']);
 
         $this->getJson("/api/admin/city-visits?city_id={$city->id}")
             ->assertOk()

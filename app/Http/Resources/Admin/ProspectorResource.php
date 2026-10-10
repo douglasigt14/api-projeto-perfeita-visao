@@ -2,7 +2,7 @@
 
 namespace App\Http\Resources\Admin;
 
-use App\Enums\LeadStatus;
+use App\Enums\LeadStage;
 use App\Models\Prospector;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -33,11 +33,11 @@ class ProspectorResource extends JsonResource
             'trusted_at' => $this->trusted_at?->toIso8601String(),
             'leads_count' => $this->whenCounted('leads'),
             'attended_count' => $this->whenCounted('attendedLeads'),
-            // Só no detalhe: quantas indicações em cada situação.
-            'leads_by_status' => $this->when(
+            // Só no detalhe: quantas indicações em cada etapa.
+            'leads_by_stage' => $this->when(
                 $this->resource->relationLoaded('leads'),
-                fn () => collect(LeadStatus::cases())->mapWithKeys(fn (LeadStatus $status) => [
-                    $status->value => $this->leads->where('status', $status)->count(),
+                fn () => collect(LeadStage::cases())->mapWithKeys(fn (LeadStage $stage) => [
+                    $stage->value => $this->leads->where('stage', $stage)->count(),
                 ]),
             ),
             'created_at' => $this->created_at?->toIso8601String(),

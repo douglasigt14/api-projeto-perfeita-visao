@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CityVisitStatus;
-use App\Enums\LeadStatus;
+use App\Enums\LeadStage;
 use Database\Factories\CityVisitFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -91,6 +91,6 @@ class CityVisit extends Model
      */
     public function scheduledLeads(): HasMany
     {
-        return $this->leads()->where('status', LeadStatus::Scheduled);
+        return $this->leads()->where('stage', LeadStage::Scheduled);
     }
 }

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Enums\CityVisitStatus;
-use App\Enums\LeadStatus;
+use App\Enums\LeadStage;
 use App\Http\Controllers\Controller;
 use App\Models\City;
 use App\Models\CityVisit;
@@ -47,9 +47,9 @@ class DashboardController extends Controller
             ->whereBetween('leads.created_at', $createdBetween)
             ->when($cityId, fn ($q) => $q->where('leads.city_id', $cityId));
 
-        $byStatus = $leads()->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
-        $leadsByStatus = collect(LeadStatus::cases())
-            ->mapWithKeys(fn (LeadStatus $status) => [$status->value => (int) ($byStatus[$status->value] ?? 0)]);
+        $byStage = $leads()->selectRaw('stage, COUNT(*) as total')->groupBy('stage')->pluck('total', 'stage');
+        $leadsByStage = collect(LeadStage::cases())
+            ->mapWithKeys(fn (LeadStage $stage) => [$stage->value => (int) ($byStage[$stage->value] ?? 0)]);
 
         $visitsByStatus = CityVisit::query()
             ->whereRaw('COALESCE(end_date, visit_date) >= ?', [$from->toDateString()])
@@ -62,10 +62,10 @@ class DashboardController extends Controller
         return response()->json(['data' => [
             'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
             'leads' => [
-                'total' => $leadsByStatus->sum(),
-                'with_appointment' => $leadsByStatus->only($this->appointmentStatuses())->sum(),
-                'attended' => $leadsByStatus[LeadStatus::Attended->value],
-                'by_status' => $leadsByStatus,
+                'total' => $leadsByStage->sum(),
+                'with_appointment' => $leadsByStage->only($this->appointmentStages())->sum(),
+                'attended' => $leadsByStage[LeadStage::Attended->value],
+                'by_stage' => $leadsByStage,
             ],
             'leads_by_city' => $this->leadsByCity($leads()),
             'visits' => [
@@ -87,11 +87,11 @@ class DashboardController extends Controller
     /**
      * @return list<string>
      */
-    private function appointmentStatuses(): array
+    private function appointmentStages(): array
     {
-        return collect(LeadStatus::cases())
-            ->filter(fn (LeadStatus $status) => $status->needsAppointment())
-            ->map(fn (LeadStatus $status) => $status->value)
+        return collect(LeadStage::cases())
+            ->filter(fn (LeadStage $stage) => $stage->needsAppointment())
+            ->map(fn (LeadStage $stage) => $stage->value)
             ->values()
             ->all();
     }
@@ -105,7 +105,7 @@ class DashboardController extends Controller
     private function leadsByCity(Builder $leads): array
     {
         $rows = $leads
-            ->selectRaw('city_id, COUNT(*) as total, SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as attended', [LeadStatus::Attended->value])
+            ->selectRaw('city_id, COUNT(*) as total, SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) as attended', [LeadStage::Attended->value])
             ->groupBy('city_id')
             ->orderByDesc('total')
             ->get();
@@ -130,9 +130,9 @@ class DashboardController extends Controller
         $rows = $leads
             ->selectRaw(
                 'prospector_id, COUNT(*) as leads_count,'
-                .' SUM(CASE WHEN status IN (?, ?, ?) THEN 1 ELSE 0 END) as with_appointment_count,'
-                .' SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as attended_count',
-                [...$this->appointmentStatuses(), LeadStatus::Attended->value],
+                .' SUM(CASE WHEN stage IN (?, ?, ?) THEN 1 ELSE 0 END) as with_appointment_count,'
+                .' SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) as attended_count',
+                [...$this->appointmentStages(), LeadStage::Attended->value],
             )
             ->groupBy('prospector_id')
             ->orderByDesc('attended_count')
