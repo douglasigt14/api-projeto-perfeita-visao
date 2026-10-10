@@ -20,6 +20,18 @@ class CityVisit extends Model
     use HasFactory;
 
     /**
+     * Concluído ou cancelado desliga sozinho o "Receber indicações" (e não deixa religar).
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (CityVisit $visit) {
+            if ($visit->status?->isClosed()) {
+                $visit->active = false;
+            }
+        });
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -45,6 +57,15 @@ class CityVisit extends Model
         $query->where('active', true)
             ->whereIn('status', [CityVisitStatus::Scheduled, CityVisitStatus::InProgress])
             ->whereRaw('COALESCE(end_date, visit_date) >= ?', [today()->toDateString()]);
+    }
+
+    /**
+     * Dia em que a indicação de parceiro confiável é agendada: o 1º dia do atendimento,
+     * ou hoje se o atendimento já começou.
+     */
+    public function firstAvailableDay(): string
+    {
+        return $this->visit_date->max(today())->toDateString();
     }
 
     /**
