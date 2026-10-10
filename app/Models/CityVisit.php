@@ -20,6 +20,18 @@ class CityVisit extends Model
     use HasFactory;
 
     /**
+     * Concluído ou cancelado desliga sozinho o "Receber indicações" (e não deixa religar).
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (CityVisit $visit) {
+            if ($visit->status?->isClosed()) {
+                $visit->active = false;
+            }
+        });
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

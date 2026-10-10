@@ -75,6 +75,33 @@ class AdminCityVisitTest extends TestCase
             ->assertJsonValidationErrors(['end_date']);
     }
 
+    public function test_completed_or_cancelled_visit_stops_receiving_leads(): void
+    {
+        $visit = CityVisit::factory()->create();
+        $this->assertTrue($visit->active);
+
+        $this->patchJson("/api/admin/city-visits/{$visit->id}", ['status' => 'completed'])
+            ->assertOk()
+            ->assertJsonPath('data.active', false);
+
+        // não dá para religar enquanto estiver concluído
+        $this->patchJson("/api/admin/city-visits/{$visit->id}", ['active' => true])
+            ->assertOk()
+            ->assertJsonPath('data.active', false);
+
+        $this->postJson('/api/admin/city-visits', [
+            'city_id' => $visit->city_id,
+            'title' => 'Atendimento Antigo',
+            'visit_date' => '2026-10-01',
+            'status' => 'cancelled',
+            'active' => true,
+        ])->assertCreated()->assertJsonPath('data.active', false);
+
+        // voltando para agendado, a equipe religa quando quiser
+        $this->patchJson("/api/admin/city-visits/{$visit->id}", ['status' => 'scheduled', 'active' => true])
+            ->assertJsonPath('data.active', true);
+    }
+
     public function test_lists_visits_with_filters_and_counts(): void
     {
         $city = City::factory()->create();
