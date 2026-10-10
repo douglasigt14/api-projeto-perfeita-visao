@@ -3,10 +3,11 @@
 namespace App\Enums;
 
 /**
- * Situação da indicação na triagem da equipe.
+ * Etapa da indicação na triagem da equipe. Fixa no código: as regras do sistema dependem dela.
+ * As situações (tabela lead_statuses) são criadas pela equipe, cada uma dentro de uma etapa.
  * Nova → Em contato → Agendada → Compareceu / Não compareceu; Descartada a qualquer momento.
  */
-enum LeadStatus: string
+enum LeadStage: string
 {
     case New = 'new';
     case Contacting = 'contacting';
@@ -28,7 +29,7 @@ enum LeadStatus: string
     }
 
     /**
-     * Situações que dependem de um dia de exame marcado.
+     * Etapas que dependem de um dia de exame marcado.
      */
     public function needsAppointment(): bool
     {

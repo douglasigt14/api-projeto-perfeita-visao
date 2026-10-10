@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
-use App\Enums\LeadStatus;
+use App\Enums\LeadStage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ScheduleLeadRequest;
 use App\Http\Requests\Admin\StoreLeadContactRequest;
@@ -10,6 +10,7 @@ use App\Http\Requests\Admin\UpdateLeadStatusRequest;
 use App\Http\Resources\Admin\LeadContactResource;
 use App\Http\Resources\Admin\LeadResource;
 use App\Models\Lead;
+use App\Models\LeadStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -26,19 +27,21 @@ class LeadController extends Controller
             'city_id' => ['nullable', 'integer'],
             'city_visit_id' => ['nullable', 'integer'],
             'prospector_id' => ['nullable', 'integer'],
-            'status' => ['nullable', Rule::enum(LeadStatus::class)],
+            'stage' => ['nullable', Rule::enum(LeadStage::class)],
+            'lead_status_id' => ['nullable', 'integer'],
             'appointment_date' => ['nullable', 'date_format:Y-m-d'],
             'search' => ['nullable', 'string', 'max:100'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
         $leads = Lead::query()
-            ->with(['city', 'visit', 'prospector'])
+            ->with(['city', 'visit', 'prospector', 'status'])
             ->withCount('contacts')
             ->when($filters['city_id'] ?? null, fn ($q, $id) => $q->where('city_id', $id))
             ->when($filters['city_visit_id'] ?? null, fn ($q, $id) => $q->where('city_visit_id', $id))
             ->when($filters['prospector_id'] ?? null, fn ($q, $id) => $q->where('prospector_id', $id))
-            ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
+            ->when($filters['stage'] ?? null, fn ($q, $stage) => $q->where('stage', $stage))
+            ->when($filters['lead_status_id'] ?? null, fn ($q, $id) => $q->where('lead_status_id', $id))
             ->when($filters['appointment_date'] ?? null, fn ($q, $date) => $q->whereDate('appointment_date', $date))
             ->when(trim($filters['search'] ?? ''), function ($q, string $search) {
                 $digits = preg_replace('/\D/', '', $search);
@@ -58,11 +61,12 @@ class LeadController extends Controller
 
     public function show(Lead $lead): LeadResource
     {
-        return new LeadResource($lead->load(['city', 'visit', 'prospector', 'contacts.user']));
+        return new LeadResource($lead->load(['city', 'visit', 'prospector', 'status', 'contacts.user', 'statusChanges.from', 'statusChanges.to', 'statusChanges.user.prospector']));
     }
 
     /**
-     * Marca o dia do exame (status vira "Agendada") ou desmarca com null (volta para "Em contato").
+     * Marca o dia do exame (vai para a etapa Agendada) ou desmarca com null (volta para Em contato).
+     * Se já está numa situação da etapa certa, continua nela.
      */
     public function schedule(ScheduleLeadRequest $request, Lead $lead): LeadResource
     {
@@ -70,22 +74,22 @@ class LeadController extends Controller
 
         $lead->update([
             'appointment_date' => $date,
-            'status' => $date ? LeadStatus::Scheduled : LeadStatus::Contacting,
+            'stage' => $date ? LeadStage::Scheduled : LeadStage::Contacting,
         ]);
 
         return $this->show($lead);
     }
 
     /**
-     * Muda a situação. Voltar para Nova, Em contato ou Descartada desmarca o exame.
+     * Muda a situação. Ir para uma etapa sem exame (Nova, Em contato, Descartada) desmarca o dia.
      */
     public function updateStatus(UpdateLeadStatusRequest $request, Lead $lead): LeadResource
     {
-        $status = LeadStatus::from($request->validated('status'));
+        $status = LeadStatus::findOrFail($request->validated('lead_status_id'));
 
         $lead->update([
-            'status' => $status,
-            'appointment_date' => $status->needsAppointment() ? $lead->appointment_date : null,
+            'lead_status_id' => $status->id,
+            'appointment_date' => $status->stage->needsAppointment() ? $lead->appointment_date : null,
         ]);
 
         return $this->show($lead);
@@ -98,8 +102,8 @@ class LeadController extends Controller
     {
         $contact = $lead->contacts()->create([...$request->validated(), 'user_id' => $request->user()->id]);
 
-        if ($lead->status === LeadStatus::New) {
-            $lead->update(['status' => LeadStatus::Contacting]);
+        if ($lead->stage === LeadStage::New) {
+            $lead->update(['stage' => LeadStage::Contacting]);
         }
 
         return (new LeadContactResource($contact->load('user')))->response()->setStatusCode(201);

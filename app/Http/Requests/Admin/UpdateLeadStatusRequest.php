@@ -2,15 +2,17 @@
 
 namespace App\Http\Requests\Admin;
 
-use App\Enums\LeadStatus;
+use App\Enums\LeadStage;
 use App\Models\Lead;
+use App\Models\LeadStatus;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Muda a situação da indicação. "Agendada" só pela rota de agendar; "Compareceu"/"Não compareceu" exigem dia marcado.
+ * Troca manual de situação. Regras pela etapa: para ir à etapa Agendada é preciso marcar o dia
+ * (só dá para trocar entre situações dela se já estiver agendada); Compareceu/Não compareceu exigem dia marcado.
  */
 class UpdateLeadStatusRequest extends FormRequest
 {
@@ -20,14 +22,20 @@ class UpdateLeadStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => [
+            'lead_status_id' => [
                 'required',
-                Rule::enum(LeadStatus::class)->except([LeadStatus::Scheduled]),
+                'integer',
+                Rule::exists('lead_statuses', 'id')->where('active', true),
                 function (string $attribute, mixed $value, Closure $fail) {
                     /** @var Lead $lead */
                     $lead = $this->route('lead');
-                    $status = LeadStatus::tryFrom($value);
-                    if ($status?->needsAppointment() && $lead->appointment_date === null) {
+                    $status = LeadStatus::find($value);
+                    if ($status === null) {
+                        return;
+                    }
+                    if ($status->stage === LeadStage::Scheduled && $lead->stage !== LeadStage::Scheduled) {
+                        $fail('Para agendar, escolha o dia do exame.');
+                    } elseif ($status->stage->needsAppointment() && $lead->appointment_date === null) {
                         $fail('Marque o dia do exame antes.');
                     }
                 },
@@ -41,7 +49,7 @@ class UpdateLeadStatusRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'status.enum' => 'Para agendar, escolha o dia do exame.',
+            'lead_status_id.exists' => 'Escolha uma situação ativa.',
         ];
     }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\LeadStatus;
+use App\Enums\LeadStage;
 use Database\Factories\ProspectorFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -64,12 +64,12 @@ class Prospector extends Model
         }
 
         $this->leads()
-            ->where('status', LeadStatus::New)
+            ->where('stage', LeadStage::New)
             ->whereHas('visit', fn ($q) => $q->open())
             ->with('visit')
             ->get()
             ->each(fn (Lead $lead) => $lead->update([
-                'status' => LeadStatus::Scheduled,
+                'stage' => LeadStage::Scheduled,
                 'appointment_date' => $lead->visit->firstAvailableDay(),
             ]));
     }
@@ -99,7 +99,7 @@ class Prospector extends Model
      */
     public function attendedLeads(): HasMany
     {
-        return $this->leads()->where('status', LeadStatus::Attended);
+        return $this->leads()->where('stage', LeadStage::Attended);
     }
 
     /**

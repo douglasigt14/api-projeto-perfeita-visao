@@ -2,11 +2,12 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Enums\LeadStatus;
+use App\Enums\LeadStage;
 use App\Enums\UserRole;
 use App\Models\City;
 use App\Models\CityVisit;
 use App\Models\Lead;
+use App\Models\LeadStatus;
 use App\Models\Prospector;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,6 +17,12 @@ use Tests\TestCase;
 class AdminLeadTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** Situação padrão da etapa (criada pela migration). */
+    private function statusId(string $stage): int
+    {
+        return LeadStatus::defaultFor(LeadStage::from($stage))->id;
+    }
 
     private User $agent;
 
@@ -47,14 +54,14 @@ class AdminLeadTest extends TestCase
             ->assertJsonPath('meta.total', 2)
             ->assertJsonStructure(['data' => [['id', 'name', 'phone_number', 'status', 'appointment_date', 'city', 'visit', 'prospector' => ['id', 'name'], 'contacts_count']]]);
 
-        foreach (["city_id={$city->id}", "prospector_id={$prospector->id}", 'search=souza', 'search=(88) 99999-1234', 'status=new&search=maria'] as $query) {
+        foreach (["city_id={$city->id}", "prospector_id={$prospector->id}", 'search=souza', 'search=(88) 99999-1234', 'stage=new&search=maria'] as $query) {
             $this->getJson("/api/admin/leads?{$query}")
                 ->assertOk()
                 ->assertJsonCount(1, 'data')
                 ->assertJsonPath('data.0.id', $maria->id);
         }
 
-        $this->getJson('/api/admin/leads?status=scheduled')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/admin/leads?stage=scheduled')->assertOk()->assertJsonCount(0, 'data');
     }
 
     public function test_schedules_exam_within_the_visit_period(): void
@@ -70,13 +77,13 @@ class AdminLeadTest extends TestCase
         $this->patchJson("/api/admin/leads/{$lead->id}/schedule", ['appointment_date' => '2026-11-23'])
             ->assertOk()
             ->assertJsonPath('data.appointment_date', '2026-11-23')
-            ->assertJsonPath('data.status', 'scheduled');
+            ->assertJsonPath('data.stage', 'scheduled');
 
         // desmarcar volta para "Em contato"
         $this->patchJson("/api/admin/leads/{$lead->id}/schedule", ['appointment_date' => null])
             ->assertOk()
             ->assertJsonPath('data.appointment_date', null)
-            ->assertJsonPath('data.status', 'contacting');
+            ->assertJsonPath('data.stage', 'contacting');
     }
 
     public function test_one_day_visit_only_accepts_that_day(): void
@@ -100,25 +107,25 @@ class AdminLeadTest extends TestCase
     {
         $lead = $this->leadInVisit();
 
-        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['status' => 'scheduled'])
+        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['lead_status_id' => $this->statusId('scheduled')])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['status' => 'Para agendar, escolha o dia do exame.']);
+            ->assertJsonValidationErrors(['lead_status_id' => 'Para agendar, escolha o dia do exame.']);
 
-        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['status' => 'attended'])
+        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['lead_status_id' => $this->statusId('attended')])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['status' => 'Marque o dia do exame antes.']);
+            ->assertJsonValidationErrors(['lead_status_id' => 'Marque o dia do exame antes.']);
 
-        $lead->update(['status' => LeadStatus::Scheduled, 'appointment_date' => '2026-11-23']);
+        $lead->update(['stage' => LeadStage::Scheduled, 'appointment_date' => '2026-11-23']);
 
-        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['status' => 'attended'])
+        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['lead_status_id' => $this->statusId('attended')])
             ->assertOk()
-            ->assertJsonPath('data.status', 'attended')
+            ->assertJsonPath('data.stage', 'attended')
             ->assertJsonPath('data.appointment_date', '2026-11-23');
 
         // descartar desmarca o exame
-        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['status' => 'discarded'])
+        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['lead_status_id' => $this->statusId('discarded')])
             ->assertOk()
-            ->assertJsonPath('data.status', 'discarded')
+            ->assertJsonPath('data.stage', 'discarded')
             ->assertJsonPath('data.appointment_date', null);
     }
 
@@ -132,7 +139,7 @@ class AdminLeadTest extends TestCase
         $this->postJson("/api/admin/leads/{$lead->id}/contacts", ['channel' => 'phone_call', 'result' => 'reached', 'notes' => 'Prefere sábado'])
             ->assertCreated();
 
-        $this->assertSame(LeadStatus::Contacting, $lead->refresh()->status);
+        $this->assertSame(LeadStage::Contacting, $lead->refresh()->stage);
 
         $this->getJson("/api/admin/leads/{$lead->id}")
             ->assertOk()
@@ -149,10 +156,10 @@ class AdminLeadTest extends TestCase
     {
         $partner = User::factory()->create();
         $new = Lead::factory()->for($partner->prospector)->create();
-        $scheduled = Lead::factory()->for($partner->prospector)->create(['status' => LeadStatus::Scheduled, 'appointment_date' => now()]);
+        $scheduled = Lead::factory()->for($partner->prospector)->create(['stage' => LeadStage::Scheduled, 'appointment_date' => now()]);
         Passport::actingAs($partner);
 
-        $this->getJson('/api/leads')->assertOk()->assertJsonPath('data.0.status', 'scheduled');
+        $this->getJson('/api/leads')->assertOk()->assertJsonPath('data.0.stage', 'scheduled');
 
         $this->deleteJson("/api/leads/{$scheduled->id}")
             ->assertUnprocessable()
@@ -160,5 +167,65 @@ class AdminLeadTest extends TestCase
         $this->assertNotSoftDeleted($scheduled);
 
         $this->deleteJson("/api/leads/{$new->id}")->assertNoContent();
+    }
+
+    public function test_switches_status_within_the_stage_and_keeps_it_on_automatic_moves(): void
+    {
+        $lead = $this->leadInVisit();
+        $noAnswer = LeadStatus::create(['name' => 'Sem resposta', 'partner_name' => 'Em contato', 'stage' => LeadStage::Contacting, 'color' => 'orange']);
+        $rescheduled = LeadStatus::create(['name' => 'Reagendada', 'partner_name' => 'Exame marcado', 'stage' => LeadStage::Scheduled, 'color' => 'teal']);
+
+        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['lead_status_id' => $noAnswer->id])
+            ->assertOk()
+            ->assertJsonPath('data.stage', 'contacting')
+            ->assertJsonPath('data.status.name', 'Sem resposta');
+
+        // 1º contato não mexe: já está em Em contato
+        $this->postJson("/api/admin/leads/{$lead->id}/contacts", ['channel' => 'whatsapp', 'result' => 'no_answer'])->assertCreated();
+        $this->assertSame($noAnswer->id, $lead->refresh()->lead_status_id);
+
+        // situação de Agendada sem dia marcado → recusa
+        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['lead_status_id' => $rescheduled->id])
+            ->assertJsonValidationErrors(['lead_status_id' => 'Para agendar, escolha o dia do exame.']);
+
+        // marcar o dia → padrão de Agendada; depois troca para outra de Agendada
+        $this->patchJson("/api/admin/leads/{$lead->id}/schedule", ['appointment_date' => '2026-11-23'])
+            ->assertJsonPath('data.status.id', $this->statusId('scheduled'));
+        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['lead_status_id' => $rescheduled->id])
+            ->assertOk()
+            ->assertJsonPath('data.status.name', 'Reagendada')
+            ->assertJsonPath('data.appointment_date', '2026-11-23');
+
+        // situação desativada não pode ser escolhida
+        $noAnswer->update(['active' => false]);
+        $this->patchJson("/api/admin/leads/{$lead->id}/status", ['lead_status_id' => $noAnswer->id])
+            ->assertJsonValidationErrors(['lead_status_id']);
+
+        $this->getJson('/api/admin/leads?lead_status_id='.$rescheduled->id)->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_keeps_the_status_history_with_who_changed(): void
+    {
+        $partner = User::factory()->create();
+        $visit = CityVisit::factory()->create();
+        Passport::actingAs($partner);
+        $id = $this->postJson('/api/leads', ['name' => 'João', 'phone_number' => '88988887777', 'city_id' => $visit->city_id, 'city_visit_id' => $visit->id])
+            ->assertCreated()
+            ->assertJsonPath('data.stage', 'new')
+            ->assertJsonPath('data.status.name', 'Recebida') // nome que o parceiro vê
+            ->json('data.id');
+
+        Passport::actingAs($this->agent);
+        $this->patchJson("/api/admin/leads/{$id}/status", ['lead_status_id' => $this->statusId('discarded')])->assertOk();
+
+        $this->getJson("/api/admin/leads/{$id}")
+            ->assertJsonCount(2, 'data.status_changes')
+            ->assertJsonPath('data.status_changes.0.from.name', 'Nova')
+            ->assertJsonPath('data.status_changes.0.to.name', 'Descartada')
+            ->assertJsonPath('data.status_changes.0.user.name', 'Ana Atendente')
+            ->assertJsonPath('data.status_changes.1.from', null)
+            ->assertJsonPath('data.status_changes.1.to.name', 'Nova')
+            ->assertJsonPath('data.status_changes.1.user.name', $partner->prospector->name)
+            ->assertJsonPath('data.status_changes.1.user.is_partner', true);
     }
 }
